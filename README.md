@@ -3,8 +3,9 @@
 폰에서 **버튼 한 번**으로 집 Windows PC(`acesond/Sond-pickle`)를 조작하는 단일 파일 웹앱입니다.
 빌드 없이 `index.html` 하나로 동작하고, 코인 웹앱과 같은 다크 테마를 씁니다.
 
-- 미리보기: `preview-390.png` (390×844), `preview-390-buttons.png`, `preview-390-capture.png`, `preview-390-full.png`
-- 아직 배포 전입니다. GitHub Pages 새 레포 배포는 성훈님 확인 후 진행합니다.
+- **배포 주소: <https://acesond.github.io/Sond-pc-app/>** (GitHub Pages, `main` / `/`)
+- 폰 브라우저에서 위 주소를 열고 **홈 화면에 추가**하면 앱처럼 뜹니다. 토큰은 사이트별 localStorage라 배포 주소에서 한 번만 다시 넣으면 됩니다.
+- 미리보기(로컬 검증): `preview-390.png` (390×844), `preview-390-buttons.png`, `preview-390-capture.png`, `preview-390-full.png` / 라이브: `live-390.png`
 
 ## 쓰는 순서
 
@@ -62,11 +63,18 @@
 ## 파일
 
 - `index.html` — 앱 전체(스타일·스크립트 포함, 외부 의존은 JSZip CDN 하나)
-- `preview-390*.png` — 390×844 검증 스크린샷
+- `README.md` — 이 문서
+
+로컬 개발 폴더(`downloads/pc-remote-webapp/`) 기준 검증 자료:
+
+- `preview-390*.png`, `live-390.png` — 390×844 검증 스크린샷(로컬 / 배포 라이브)
 - `../../tests/pc_remote_webapp_test.py` — Playwright 검증(GitHub API 모킹), 결과 `../../tests/report.json`
+- `../../tests/live_pc_remote_check.py` — 배포 주소 390×844 라이브 검증, 결과 `../../tests/live_report.json`
 - `../../tests/fixtures/real_capture_log.txt` — 실제 러너 로그(2026-11-24 캡처 런) 파싱 검증용
 
-## 배포(다음 단계, 확인 후)
+## 배포
 
-GitHub Pages용 새 레포(예: `acesond/pc-remote`)에 `index.html`만 올리고 Settings → Pages → `main / root`.
-폰에서는 "홈 화면에 추가"로 앱처럼 띄우면 됩니다. 토큰은 사이트별 localStorage에 저장되므로 배포 후 한 번만 다시 넣으면 됩니다.
+- 저장소: `acesond/Sond-pc-app` (Public)
+- GitHub Pages: Settings → Pages → Source `Deploy from a branch` → Branch `main` / `/ (root)` → Save
+- 배포 주소: <https://acesond.github.io/Sond-pc-app/>
+- 수정은 `index.html`을 같은 `main` 브랜치에 푸시하면 1분 안에 자동 반영됩니다.
