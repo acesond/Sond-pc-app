@@ -1,0 +1,936 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#070b12">
+<meta name="description" content="폰에서 버튼으로 집 PC를 조작하는 원격제어 웹앱 (acesond/Sond-pickle)">
+<title>PC 원격제어 · Sond-pickle</title>
+<style>
+:root{
+  color-scheme: dark;
+  --bg:#070b12; --bg-soft:#0b1118; --card:#101826; --card2:#141e2e; --line:#1e2a3c; --line2:#27364b;
+  --txt:#e9eff8; --dim:#93a2b6; --dim2:#657488; --accent:#5b8cff;
+  --up:#22c55e; --down:#f43f5e; --warn:#f59e0b; --gold:#e5b45a; --violet:#a78bfa;
+  --r:16px; --hdrH:54px;
+}
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+html,body{margin:0; padding:0}
+html{background:var(--bg)}
+body{
+  background:
+    radial-gradient(1100px 420px at 50% -180px, rgba(91,140,255,.13), transparent 70%),
+    radial-gradient(700px 340px at 100% 8%, rgba(34,197,94,.06), transparent 70%),
+    var(--bg);
+  color:var(--txt);
+  font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard","Noto Sans KR",Roboto,"Malgun Gothic",sans-serif;
+  font-size:15px; line-height:1.45; -webkit-font-smoothing:antialiased; word-break:keep-all; overflow-wrap:anywhere;
+  overflow-x:hidden; padding-bottom:calc(24px + env(safe-area-inset-bottom));
+}
+.num{font-variant-numeric:tabular-nums; font-feature-settings:"tnum" 1}
+.app{max-width:560px; margin:0 auto; padding:12px 14px 0}
+
+/* top bar */
+.topbar{position:sticky; top:0; z-index:30; height:calc(var(--hdrH) + env(safe-area-inset-top)); padding:env(safe-area-inset-top) 0 0;
+  background:rgba(7,11,18,.82); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); border-bottom:1px solid rgba(30,42,60,.7)}
+.tb-in{max-width:560px; margin:0 auto; padding:0 14px; height:100%; display:flex; align-items:center; justify-content:space-between; gap:10px}
+.brand{display:flex; align-items:center; gap:9px; min-width:0}
+.brand .ico{font-size:18px; line-height:1}
+.brand b{display:block; font-size:15px; font-weight:800; letter-spacing:-.2px}
+.brand .sub{display:block; font-size:10.5px; color:var(--dim2); font-weight:600; margin-top:-1px}
+.badge{flex:0 0 auto; border:1px solid var(--line2); background:var(--card); color:var(--dim); font:700 11.5px/1 inherit;
+  padding:8px 11px; border-radius:999px; display:inline-flex; align-items:center; gap:6px; cursor:pointer}
+.badge::before{content:""; width:7px; height:7px; border-radius:50%; background:var(--dim2); box-shadow:0 0 0 3px rgba(101,116,136,.16)}
+.badge[data-state="ok"]{color:#bbf7d0; border-color:rgba(34,197,94,.42); background:rgba(34,197,94,.12)}
+.badge[data-state="ok"]::before{background:var(--up); box-shadow:0 0 0 3px rgba(34,197,94,.18)}
+.badge[data-state="warn"]{color:#fde68a; border-color:rgba(245,158,11,.42); background:rgba(245,158,11,.12)}
+.badge[data-state="warn"]::before{background:var(--warn); box-shadow:0 0 0 3px rgba(245,158,11,.18)}
+.badge[data-state="bad"]{color:#fecdd3; border-color:rgba(244,63,94,.42); background:rgba(244,63,94,.12)}
+.badge[data-state="bad"]::before{background:var(--down); box-shadow:0 0 0 3px rgba(244,63,94,.18)}
+.badge[data-state="busy"]::before{background:var(--accent); box-shadow:0 0 0 3px rgba(91,140,255,.18); animation:pulse 1s infinite}
+@keyframes pulse{50%{opacity:.35}}
+
+/* cards */
+.card{background:linear-gradient(180deg,var(--card),var(--bg-soft)); border:1px solid var(--line); border-radius:var(--r);
+  padding:13px; margin-bottom:11px; min-width:0}
+.card.flash{border-color:rgba(91,140,255,.55); box-shadow:0 0 0 3px rgba(91,140,255,.1)}
+.hd{display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:9px}
+.hd h2{margin:0; font-size:13.5px; font-weight:800; letter-spacing:-.2px; display:flex; align-items:center; gap:6px; min-width:0}
+.hd h2 small{font-weight:600; color:var(--dim2); font-size:10.5px}
+.hint{margin:0 0 10px; font-size:11.5px; color:var(--dim); line-height:1.5}
+.hint b{color:var(--txt); font-weight:700}
+.link{background:none; border:0; color:var(--accent); font:700 11.5px/1 inherit; padding:6px 2px; cursor:pointer}
+
+/* fields */
+.field{display:flex; align-items:center; gap:6px; background:var(--card2); border:1px solid var(--line2); border-radius:12px; padding:0 8px 0 11px}
+.field input{flex:1 1 auto; min-width:0; background:none; border:0; outline:none; color:var(--txt); font:600 13px/1 ui-monospace,SFMono-Regular,Menlo,monospace; padding:13px 0}
+.field input::placeholder{color:var(--dim2); font-weight:500}
+.iconbtn{flex:0 0 auto; background:none; border:0; color:var(--dim); font-size:14px; padding:8px 6px; cursor:pointer}
+.row{display:flex; gap:7px; margin-top:9px; flex-wrap:wrap; align-items:center}
+.row.tight{margin-top:0; gap:6px}
+.btn{appearance:none; border:1px solid var(--line2); background:var(--card2); color:var(--txt); font:700 12.5px/1 inherit;
+  padding:11px 13px; border-radius:11px; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; gap:6px; text-decoration:none}
+.btn:active{transform:translateY(1px)}
+.btn.primary{background:linear-gradient(180deg,#3f74ff,#2f5fe0); border-color:#3f74ff; color:#fff; box-shadow:0 6px 16px rgba(59,110,255,.22)}
+.btn.sm{padding:9px 11px; font-size:12px; border-radius:10px}
+.btn.ghost{background:transparent}
+.btn.danger{color:#fecdd3; border-color:rgba(244,63,94,.4)}
+.btn[disabled]{opacity:.45; cursor:default}
+.btn.busy{position:relative; color:transparent}
+.btn.busy::after{content:""; position:absolute; inset:0; margin:auto; width:13px; height:13px; border-radius:50%;
+  border:2px solid rgba(255,255,255,.35); border-top-color:#fff; animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.connDetail{margin-top:9px; font-size:11.5px; color:var(--dim); line-height:1.55; min-height:0}
+.connDetail .ok{color:#86efac; font-weight:700}
+.connDetail .no{color:#fda4af; font-weight:700}
+.connDetail code{font:600 11px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace; color:var(--txt); background:rgba(255,255,255,.05); padding:1px 5px; border-radius:5px}
+details.help{margin-top:10px; border-top:1px dashed var(--line); padding-top:9px}
+details.help summary{font-size:11.5px; color:var(--accent); font-weight:700; cursor:pointer; list-style:none}
+details.help summary::-webkit-details-marker{display:none}
+details.help summary::before{content:"＋ "; color:var(--dim2)}
+details.help[open] summary::before{content:"－ "}
+details.help ol{margin:8px 0 0; padding-left:18px; font-size:11.5px; color:var(--dim); line-height:1.75}
+details.help ol b{color:var(--txt)}
+
+/* quick grid */
+.quick{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px}
+.qbtn{min-width:0; text-align:left; background:var(--card2); border:1px solid var(--line2); border-radius:13px; padding:11px 10px 9px;
+  color:var(--txt); cursor:pointer; display:flex; flex-direction:column; gap:2px; position:relative; overflow:hidden}
+.qbtn:active{transform:translateY(1px); border-color:rgba(91,140,255,.5)}
+.qbtn .qi{font-size:17px; line-height:1.1}
+.qbtn .ql{font-size:12.5px; font-weight:800; letter-spacing:-.2px; margin-top:1px}
+.qbtn .qd{font-size:10px; color:var(--dim2); font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.qbtn .qc{display:block; margin-top:6px; font:500 9px/1.35 ui-monospace,SFMono-Regular,Menlo,monospace; color:var(--dim2);
+  max-height:24px; overflow:hidden; word-break:break-all}
+.qbtn[data-warn="1"] .qd{color:#fcd34d}
+.qbtn .lock{position:absolute; top:9px; right:9px; font-size:9.5px; color:var(--warn)}
+
+/* command */
+textarea,select,input.txt{width:100%; background:var(--card2); border:1px solid var(--line2); border-radius:12px; color:var(--txt);
+  font:600 12.5px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace; padding:11px; outline:none; resize:vertical}
+textarea:focus,input.txt:focus{border-color:rgba(91,140,255,.6)}
+.chips{display:flex; gap:6px; flex-wrap:wrap; margin-top:8px}
+.chip-btn{background:rgba(91,140,255,.1); border:1px solid rgba(91,140,255,.28); color:#c7d7ff; font:700 11px/1 inherit;
+  padding:8px 10px; border-radius:999px; cursor:pointer; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+
+/* status */
+.stat{display:flex; align-items:center; gap:8px; flex-wrap:wrap}
+.chip{font:800 11px/1 inherit; padding:7px 10px; border-radius:999px; border:1px solid var(--line2); color:var(--dim); background:var(--card2); display:inline-flex; align-items:center; gap:5px}
+.chip[data-s="queued"]{color:#fde68a; border-color:rgba(245,158,11,.4); background:rgba(245,158,11,.12)}
+.chip[data-s="running"]{color:#c7d7ff; border-color:rgba(91,140,255,.45); background:rgba(91,140,255,.14)}
+.chip[data-s="running"]::before{content:""; width:6px; height:6px; border-radius:50%; background:var(--accent); animation:pulse 1s infinite}
+.chip[data-s="done"]{color:#bbf7d0; border-color:rgba(34,197,94,.42); background:rgba(34,197,94,.12)}
+.chip[data-s="fail"]{color:#fecdd3; border-color:rgba(244,63,94,.42); background:rgba(244,63,94,.12)}
+.statTime{margin-left:auto; font:700 11px/1 inherit; color:var(--dim2)}
+.stCmd{margin-top:9px; background:#0a0f18; border:1px solid var(--line); border-radius:11px; padding:9px 10px;
+  font:500 10.5px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace; color:#b9c7dc; max-height:74px; overflow:auto; white-space:pre-wrap; word-break:break-all}
+.stMeta{margin-top:8px; font-size:11px; color:var(--dim); line-height:1.5}
+.stMeta .k{color:var(--dim2)}
+.note{margin-top:8px; font-size:11px; color:#fcd34d; line-height:1.5; display:none}
+.note.on{display:block}
+
+/* capture */
+.shotWrap{position:relative; border:1px solid var(--line2); border-radius:12px; background:#0a0f18; overflow:hidden; min-height:120px;
+  display:flex; align-items:center; justify-content:center}
+.shotWrap img{display:block; width:100%; height:auto; cursor:crosshair}
+.shotEmpty{padding:26px 14px; text-align:center; font-size:11.5px; color:var(--dim2); line-height:1.6}
+.shotEmpty span{font-size:10.5px; color:#4d5c71}
+.marker{position:absolute; width:22px; height:22px; margin:-11px 0 0 -11px; border-radius:50%; border:2px solid #fff;
+  box-shadow:0 0 0 2px rgba(91,140,255,.9), 0 0 12px rgba(0,0,0,.6); pointer-events:none}
+.marker::after{content:""; position:absolute; inset:7px; border-radius:50%; background:#fff}
+.capBar{display:flex; align-items:center; gap:8px; margin-top:9px; flex-wrap:wrap}
+.capInfo{font:700 11px/1 inherit; color:var(--dim)}
+.pickInfo{font:600 11px/1.4 inherit; color:var(--dim2); flex:1 1 90px}
+.capTools{margin-top:8px; font-size:11px; color:var(--dim); display:flex; align-items:center; gap:6px}
+.capTools input{width:74px; padding:8px 9px; font-size:12px; text-align:right}
+
+/* history */
+.hItem{display:flex; align-items:center; gap:8px; padding:9px 0; border-top:1px solid var(--line); cursor:pointer; min-width:0}
+.hItem:first-child{border-top:0}
+.hDot{flex:0 0 auto; width:7px; height:7px; border-radius:50%; background:var(--dim2)}
+.hDot.s{background:var(--up)} .hDot.f{background:var(--down)} .hDot.r{background:var(--accent); animation:pulse 1s infinite} .hDot.q{background:var(--warn)}
+.hMain{min-width:0; flex:1 1 auto}
+.hTop{font-size:12px; font-weight:700; display:flex; gap:6px; align-items:baseline; min-width:0}
+.hTop span{font-weight:600; color:var(--dim2); font-size:10.5px; flex:0 0 auto}
+.hCmd{font:500 10px/1.35 ui-monospace,SFMono-Regular,Menlo,monospace; color:var(--dim2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.empty{font-size:11.5px; color:var(--dim2); padding:6px 0}
+
+/* toast + modal */
+#toast{position:fixed; left:50%; bottom:calc(18px + env(safe-area-inset-bottom)); transform:translate(-50%,20px); z-index:80;
+  background:rgba(20,30,46,.97); border:1px solid var(--line2); color:var(--txt); font:700 12px/1.4 inherit; padding:11px 14px;
+  border-radius:12px; max-width:88vw; text-align:center; opacity:0; pointer-events:none; transition:.22s ease; box-shadow:0 10px 30px rgba(0,0,0,.45)}
+#toast.on{opacity:1; transform:translate(-50%,0)}
+#toast.bad{border-color:rgba(244,63,94,.5); color:#fecdd3}
+#toast.good{border-color:rgba(34,197,94,.5); color:#bbf7d0}
+#modal{position:fixed; inset:0; z-index:90; display:none; align-items:flex-end; justify-content:center;
+  background:rgba(3,6,11,.66); backdrop-filter:blur(3px); -webkit-backdrop-filter:blur(3px)}
+#modal.on{display:flex}
+.sheet{width:100%; max-width:480px; background:linear-gradient(180deg,var(--card2),var(--card)); border:1px solid var(--line2);
+  border-bottom:0; border-radius:18px 18px 0 0; padding:16px 16px calc(16px + env(safe-area-inset-bottom)); animation:up .2s ease}
+@keyframes up{from{transform:translateY(24px); opacity:.6}}
+.sheet h3{margin:0 0 6px; font-size:15px; font-weight:800; letter-spacing:-.3px}
+.sheet p{margin:0; font-size:12.5px; color:var(--dim); line-height:1.55}
+.sheet .cmd{margin-top:10px; background:#0a0f18; border:1px solid var(--line); border-radius:10px; padding:9px 10px;
+  font:500 10.5px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace; color:#b9c7dc; max-height:110px; overflow:auto; white-space:pre-wrap; word-break:break-all}
+.sheet .row{margin-top:13px; gap:8px}
+.sheet .row .btn{flex:1 1 0}
+footer{text-align:center; font-size:10.5px; color:#43506377; line-height:1.7; padding:6px 0 14px}
+footer a{color:var(--dim2); text-decoration:none}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="tb-in">
+    <div class="brand">
+      <span class="ico">🖥️</span>
+      <div><b>PC 원격제어</b><span class="sub">acesond/Sond-pickle · 버튼식</span></div>
+    </div>
+    <button class="badge" id="connBadge" data-state="off" data-l="1" data-testid="conn-badge">미연결</button>
+  </div>
+</div>
+
+<main class="app">
+
+  <!-- 1. token -->
+  <section class="card" id="tokenCard">
+    <div class="hd">
+      <h2>🔑 GitHub 토큰 <small>Fine-grained PAT</small></h2>
+      <button class="link" id="toggleToken" data-testid="token-toggle">접기</button>
+    </div>
+    <div id="tokenBody">
+      <p class="hint">토큰은 <b>이 브라우저(localStorage)</b>에만 저장됩니다. 코드에 넣지 않았고 <b>api.github.com</b> 외에는 보내지 않습니다.</p>
+      <div class="field">
+        <input id="tokenInput" type="password" autocomplete="off" autocapitalize="off" spellcheck="false"
+               placeholder="github_pat_••••••" data-testid="token-input" aria-label="GitHub 토큰">
+        <button class="iconbtn" id="eyeBtn" data-testid="token-eye" aria-label="토큰 보기">👁</button>
+      </div>
+      <div class="row">
+        <button class="btn primary" id="saveToken" data-testid="token-save">저장</button>
+        <button class="btn" id="checkConn" data-testid="conn-check">연결 확인</button>
+        <button class="btn ghost danger" id="delToken" data-testid="token-del">삭제</button>
+      </div>
+      <div class="connDetail" id="connDetail" data-testid="conn-detail"></div>
+      <details class="help">
+        <summary>토큰 발급 방법 (1분)</summary>
+        <ol>
+          <li><a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener" style="color:var(--accent)">Fine-grained token 만들기</a> 열기</li>
+          <li><b>Repository access</b> → <b>Only select repositories</b> → <code>acesond/Sond-pickle</code> 선택</li>
+          <li><b>Permissions</b> → Repository permissions → <b>Actions: Read and write</b> (Metadata는 자동 Read)</li>
+          <li>만료일 지정 후 <b>Generate token</b> → <code>github_pat_…</code> 복사해 위에 붙여넣기</li>
+        </ol>
+      </details>
+    </div>
+  </section>
+
+  <!-- 2. quick actions -->
+  <section class="card">
+    <div class="hd"><h2>⚡ 빠른 제어 <small>한 번 누르면 PC에서 실행</small></h2></div>
+    <div class="quick" id="quickGrid" data-testid="quick-grid"></div>
+  </section>
+
+  <!-- 3. command -->
+  <section class="card">
+    <div class="hd"><h2>⌨️ 직접 명령 <small>cmd</small></h2></div>
+    <textarea id="cmdInput" rows="3" spellcheck="false" data-testid="cmd-input"
+              placeholder='예) dir "%USERPROFILE%\Desktop"'>dir "%USERPROFILE%\Desktop"</textarea>
+    <div class="chips" id="cmdChips"></div>
+    <div class="row">
+      <button class="btn primary" id="runCmd" data-testid="cmd-run">▶ 실행</button>
+      <button class="btn" id="clearCmd">지우기</button>
+    </div>
+  </section>
+
+  <!-- 4. status -->
+  <section class="card" id="statusCard">
+    <div class="hd"><h2>📡 실행 상태</h2><span class="link" id="runNum" style="color:var(--dim2)"></span></div>
+    <div class="stat">
+      <span class="chip" id="stChip" data-s="" data-testid="st-chip">대기 중</span>
+      <span class="statTime" id="stTime"></span>
+    </div>
+    <div class="stCmd" id="stCmd" data-testid="st-cmd">아직 실행한 명령이 없습니다.</div>
+    <div class="stMeta" id="stMeta"></div>
+    <div class="note" id="stNote">PC가 꺼져 있거나 러너(wscript)가 멈추면 이 상태로 남습니다. PC 전원과 러너를 확인하세요.</div>
+    <div class="row">
+      <a class="btn sm" id="runLink" href="#" target="_blank" rel="noopener" hidden>GitHub에서 보기</a>
+      <button class="btn sm" id="recheck" hidden>상태 새로고침</button>
+    </div>
+  </section>
+
+  <!-- 5. capture -->
+  <section class="card" id="capCard">
+    <div class="hd">
+      <h2>🖼 PC 화면</h2>
+      <div class="row tight">
+        <button class="btn sm primary" id="capRun" data-testid="cap-run">📸 캡처</button>
+        <button class="btn sm" id="capLogs" data-testid="cap-logs">로그에서 읽기</button>
+      </div>
+    </div>
+    <div class="shotWrap" id="shotWrap">
+      <div class="shotEmpty" id="shotEmpty">캡처 이미지가 여기에 표시됩니다.<br><span>「📸 캡처」를 누르면 끝난 뒤 자동으로 읽어옵니다.</span></div>
+      <img id="shot" alt="PC 화면 캡처" hidden data-testid="shot">
+    </div>
+    <div class="capBar" id="capBar" hidden>
+      <span class="capInfo" id="capInfo">—</span>
+      <span class="pickInfo" id="pickInfo">화면을 눌러 지점 선택</span>
+      <button class="btn sm primary" id="clickBtn" data-testid="click-btn" disabled>🖱 클릭</button>
+    </div>
+    <div class="note" id="capNote"></div>
+    <div class="capTools" id="capTools" hidden>
+      화면 폭 <input class="txt num" id="capW" type="number" inputmode="numeric" value="1920" min="320" step="1" data-testid="cap-w"> px
+      <span id="scaleInfo" style="color:var(--dim2)"></span>
+    </div>
+    <details class="help" id="pasteBox">
+      <summary>로그 붙여넣기로 이미지 만들기</summary>
+      <p class="hint" style="margin:8px 0 6px">GitHub 실행 페이지에서 <code>===START_SCREEN_CHUNK===</code> 부터 <code>===END_SCREEN_CHUNK===</code> 까지 복사해 붙여넣으면 바로 이미지로 바꿉니다.</p>
+      <textarea id="pasteTa" rows="5" spellcheck="false" data-testid="paste-ta" placeholder="INFO:1920x1080&#10;===START_SCREEN_CHUNK===&#10;/9j/4AAQSkZJRgABAQ..."></textarea>
+      <div class="row"><button class="btn" id="pasteBtn" data-testid="paste-btn">이미지로 변환</button></div>
+    </details>
+  </section>
+
+  <!-- 6. history -->
+  <section class="card">
+    <div class="hd">
+      <h2>🕘 최근 실행</h2>
+      <button class="link" id="refreshHist" data-testid="hist-refresh">새로고침</button>
+    </div>
+    <div id="histList" data-testid="hist-list"><div class="empty">토큰을 저장하면 최근 실행이 보입니다.</div></div>
+  </section>
+
+  <footer>
+    PC가 켜져 있고 러너(wscript.exe)가 실행 중일 때만 동작합니다.<br>
+    <a href="https://github.com/acesond/Sond-pickle" target="_blank" rel="noopener">github.com/acesond/Sond-pickle</a>
+  </footer>
+</main>
+
+<div id="toast" role="status" aria-live="polite"></div>
+<div id="modal" data-testid="modal">
+  <div class="sheet">
+    <h3 id="mTitle">실행할까요?</h3>
+    <p id="mBody"></p>
+    <div class="cmd" id="mCmd"></div>
+    <div class="row">
+      <button class="btn ghost" id="mCancel" data-testid="modal-cancel">취소</button>
+      <button class="btn primary" id="mOk" data-testid="modal-ok">실행</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+/* ───────── 설정 ───────── */
+var O="acesond", R="Sond-pickle", WF="pc-commander.yml", REF="main";
+var API="https://api.github.com";
+var KEY_PAT="sondpc.pat.v1", KEY_CMD="sondpc.cmds.v1";
+var JSZIP_URL="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js";
+
+/* PC 실제 환경 (CLAUDE.md 기준 검증값) */
+var PYTHON='"%LOCALAPPDATA%\\Programs\\Python\\Python312\\python.exe"';
+var CAPTURE=PYTHON+' "%USERPROFILE%\\pc-tools\\capture.py"';
+function clickCmd(x,y,n){ return PYTHON+' "%USERPROFILE%\\pc-tools\\click.py" '+x+' '+y+' '+(n||1); }
+
+var QUICK=[
+  {id:"capture", icon:"📸", label:"현재 화면 캡처", desc:"주 모니터 1920×1080", cmd:CAPTURE, capture:true},
+  {id:"windows", icon:"🪟", label:"열린 창 목록", desc:"프로세스·창 제목",
+   cmd:'powershell -NoProfile -Command "Get-Process | Where-Object {$_.MainWindowTitle} | Select-Object ProcessName,MainWindowTitle | Format-Table -AutoSize"'},
+  {id:"runner", icon:"🔌", label:"러너 상태", desc:"Runner 프로세스 확인",
+   cmd:'tasklist /FI "IMAGENAME eq Runner.Listener.exe" & tasklist /FI "IMAGENAME eq Runner.Worker.exe"'},
+  {id:"chrome", icon:"🌐", label:"크롬 열기", desc:"기본 프로필", cmd:'start "" chrome'},
+  {id:"explorer", icon:"📂", label:"탐색기 열기", desc:"내 폴더",
+   cmd:'start "" explorer.exe "%USERPROFILE%"'},
+  {id:"kakao", icon:"💬", label:"카카오톡 종료", desc:"프로세스 종료 (로그아웃 아님)",
+   cmd:'taskkill /IM KakaoTalk.exe /F', warn:true,
+   confirm:{title:"카카오톡을 종료할까요?", body:"PC의 카카오톡 프로세스를 강제 종료합니다. 로그인 상태는 그대로 남고, 자동 로그인이 켜져 있으면 다시 실행할 때 바로 로그인됩니다. 완전 로그아웃은 카카오톡 설정 → 로그아웃으로 하세요."}},
+  {id:"term", icon:"🧹", label:"PowerShell·터미널 닫기", desc:"러너는 건드리지 않음",
+   cmd:'taskkill /IM powershell.exe /F & taskkill /IM Terminal.exe /F & taskkill /IM WindowsTerminal.exe /F', warn:true,
+   confirm:{title:"터미널 창을 닫을까요?", body:"powershell.exe와 Windows Terminal을 종료합니다. GitHub 러너(cmd·Runner)는 종료하지 않습니다."}},
+  {id:"lock", icon:"🔒", label:"PC 화면 잠금", desc:"잠금 화면으로", cmd:'rundll32.exe user32.dll,LockWorkStation', warn:true,
+   confirm:{title:"PC 화면을 잠글까요?", body:"PC가 바로 잠금 화면으로 바뀝니다. PC 앞에 있는 사람이 있으면 먼저 알려주세요."}}
+];
+
+var SAMPLES=[
+  'dir "%USERPROFILE%\\Desktop"',
+  'tasklist | findstr /I "Kakao Chrome"',
+  'chcp 65001>nul && dir',
+  'type "%USERPROFILE%\\Desktop\\note.txt"',
+  'systeminfo | findstr /C:"Total Physical Memory"'
+];
+
+/* ───────── 상태 ───────── */
+var TOKEN="", connState="off";
+var cur={phase:"idle", run:null, cmd:"", note:""};
+var lastCaptureRun=null, tickTimer=null, polling=false;
+var cap={info:null, natural:{w:0,h:0}, pick:null};
+
+/* ───────── 유틸 ───────── */
+function $(s){ return document.querySelector(s); }
+function el(tag,cls,txt){ var e=document.createElement(tag); if(cls) e.className=cls; if(txt!=null) e.textContent=txt; return e; }
+function store(k,v){ try{ if(v===undefined) return localStorage.getItem(k); localStorage.setItem(k,v); return true; }catch(e){ return null; } }
+function unstore(k){ try{ localStorage.removeItem(k); }catch(e){} }
+function sleep(ms){ return new Promise(function(r){ setTimeout(r,ms); }); }
+function hhmmss(iso){ if(!iso) return ""; var d=new Date(iso); if(isNaN(d)) return ""; return d.toLocaleTimeString("ko-KR",{hour12:false}); }
+function ago(iso){
+  if(!iso) return "";
+  var s=Math.max(0,Math.round((Date.now()-new Date(iso).getTime())/1000));
+  if(s<60) return s+"초 전";
+  if(s<3600) return Math.floor(s/60)+"분 전";
+  if(s<86400) return Math.floor(s/3600)+"시간 전";
+  return Math.floor(s/86400)+"일 전";
+}
+function dur(sec){
+  sec=Math.max(0,Math.round(sec));
+  if(sec<60) return sec+"초";
+  var m=Math.floor(sec/60), s=sec%60;
+  return m+"분 "+(s<10?"0":"")+s+"초";
+}
+function toast(msg,kind){
+  var t=$("#toast");
+  t.textContent=msg; t.className="on"+(kind?" "+kind:"");
+  clearTimeout(toast._t); toast._t=setTimeout(function(){ t.className=""; },2600);
+}
+
+/* ───────── GitHub API ───────── */
+function api(path,opt){
+  opt=opt||{};
+  var headers={
+    "Accept":"application/vnd.github+json",
+    "X-GitHub-Api-Version":"2022-11-28",
+    "Authorization":"Bearer "+TOKEN
+  };
+  var init={method:opt.method||"GET", headers:headers};
+  if(opt.body){ headers["Content-Type"]="application/json"; init.body=JSON.stringify(opt.body); }
+  return fetch(API+path,init).then(function(res){
+    if(res.status===204) return {ok:true,status:204,data:null};
+    return res.text().then(function(txt){
+      var data=null; try{ data=txt?JSON.parse(txt):null; }catch(e){}
+      return {ok:res.ok,status:res.status,data:data,text:txt};
+    });
+  }).catch(function(err){
+    return {ok:false,status:0,data:null,msg:"네트워크 오류 ("+(err&&err.message||"연결 실패")+")"};
+  });
+}
+function errText(r){
+  if(r.msg) return r.msg;
+  if(r.status===401) return "토큰이 유효하지 않습니다 (401)";
+  if(r.status===403) return "권한이 없습니다 — Actions: Read and write 확인 (403)";
+  if(r.status===404) return "저장소를 찾을 수 없습니다 — 토큰의 저장소 접근 확인 (404)";
+  if(r.status===422) return "요청 형식 오류 (422)";
+  if(r.status===0) return "네트워크 오류";
+  return "오류 "+r.status+(r.data&&r.data.message?" · "+r.data.message:"");
+}
+
+/* ───────── 연결 확인 ───────── */
+function setBadge(state,label,title){
+  connState=state;
+  var b=$("#connBadge");
+  b.dataset.state=state;
+  b.textContent=label;
+  if(title) b.title=title;
+}
+function paintConn(html){ $("#connDetail").innerHTML=html; }
+
+function checkConnection(silent){
+  if(!TOKEN){ setBadge("off","미연결"); paintConn('<span class="no">토큰이 없습니다.</span> 위에 붙여넣고 저장하세요.'); return Promise.resolve(false); }
+  setBadge("busy","확인 중");
+  var btn=$("#checkConn");
+  if(!silent){ btn.classList.add("busy"); }
+  return api("/repos/"+O+"/"+R).then(function(r){
+    if(!r.ok){
+      setBadge("bad", r.status===401?"토큰 오류":"연결 실패");
+      paintConn('<span class="no">'+errText(r)+'</span>');
+      return false;
+    }
+    var repo=r.data||{};
+    return api("/repos/"+O+"/"+R+"/actions/workflows").then(function(w){
+      var list=(w.data&&w.data.workflows)||[];
+      var found=list.filter(function(x){ return x.path && x.path.indexOf("pc-commander.yml")>-1; })[0];
+      if(!w.ok){
+        setBadge("warn","권한 부족");
+        paintConn(
+          '<span class="ok">저장소 접근 OK</span> · <code>'+repo.full_name+'</code><br>'+
+          '<span class="no">Actions 읽기 권한이 없습니다</span> — 토큰 Permissions에서 <b>Actions: Read and write</b>로 바꾸세요.'
+        );
+        return false;
+      }
+      if(!found){
+        setBadge("warn","워크플로 없음");
+        paintConn('<span class="ok">저장소 접근 OK</span> · <code>'+repo.full_name+'</code><br><span class="no">pc-commander.yml 워크플로를 찾지 못했습니다.</span>');
+        return false;
+      }
+      setBadge("ok","연결됨","워크플로 "+found.name+" · "+found.state);
+      paintConn(
+        '<span class="ok">연결됨</span> · <code>'+repo.full_name+'</code> ('+(repo.private?"private":"public")+')<br>'+
+        '워크플로 <code>'+found.name+'</code> · '+found.state+' · 확인 '+hhmmss(new Date().toISOString())
+      );
+      loadHistory(true);
+      return true;
+    });
+  }).then(function(v){ btn.classList.remove("busy"); return v; });
+}
+
+/* ───────── 토큰 ───────── */
+function maskToken(t){
+  if(!t) return "";
+  if(t.length<14) return "••••";
+  return t.slice(0,10)+"…"+t.slice(-4);
+}
+function applyTokenUI(){
+  var has=!!TOKEN;
+  $("#tokenInput").value=TOKEN;
+  $("#tokenInput").type=$("#eyeBtn").dataset.on==="1"?"text":"password";
+  $("#toggleToken").textContent=$("#tokenBody").hidden?"펼치기":"접기";
+  if(has && connState==="off") setBadge("off","미연결");
+}
+
+function saveToken(){
+  var v=($("#tokenInput").value||"").trim();
+  if(!v){ toast("토큰을 입력하세요","bad"); return; }
+  if(!/^github_pat_|^ghp_/.test(v)){ toast("github_pat_ 로 시작하는 토큰이 아닙니다","bad"); return; }
+  var saved=store(KEY_PAT,v);
+  if(saved===null){ toast("이 브라우저에서는 저장이 막혀 있습니다","bad"); }
+  TOKEN=v;
+  toast("토큰을 저장했습니다","good");
+  checkConnection(true).then(function(ok){
+    if(ok) toast("연결됨 — 준비 완료","good");
+  });
+  loadHistory(true);
+}
+function delToken(){
+  unstore(KEY_PAT); TOKEN=""; $("#tokenInput").value="";
+  setBadge("off","미연결"); paintConn("");
+  $("#histList").innerHTML='<div class="empty">토큰을 저장하면 최근 실행이 보입니다.</div>';
+  toast("토큰을 삭제했습니다");
+}
+
+/* ───────── 실행 ───────── */
+function latestRunId(){
+  return api("/repos/"+O+"/"+R+"/actions/runs?per_page=5").then(function(r){
+    var list=(r.ok&&r.data&&r.data.workflow_runs)||[];
+    return list.reduce(function(m,x){ return Math.max(m,x.id||0); },0);
+  });
+}
+function rememberCmd(id,cmd){
+  try{
+    var m=JSON.parse(store(KEY_CMD)||"{}"); m[id]=String(cmd).slice(0,300);
+    var keys=Object.keys(m); if(keys.length>40){ keys.slice(0,keys.length-40).forEach(function(k){ delete m[k]; }); }
+    store(KEY_CMD,JSON.stringify(m));
+  }catch(e){}
+}
+function knownCmd(id){
+  try{ var m=JSON.parse(store(KEY_CMD)||"{}"); return m[id]||""; }catch(e){ return ""; }
+}
+
+function setStatus(p){
+  cur.phase=p.phase;
+  if(p.cmd!==undefined) cur.cmd=p.cmd;
+  if(p.run!==undefined) cur.run=p.run;
+  if(p.note!==undefined) cur.note=p.note;
+  paintStatus();
+}
+function paintStatus(){
+  var chip=$("#stChip"), t=$("#stTime"), c=$("#stCmd"), meta=$("#stMeta"), note=$("#stNote"), link=$("#runLink"), rc=$("#recheck");
+  var run=cur.run||null, phase=cur.phase;
+  var label="대기 중", s="";
+  if(phase==="dispatching"){ label="보내는 중"; s="running"; }
+  else if(phase==="waiting"){ label="큐 대기"; s="queued"; }
+  else if(phase==="running"){ label="실행 중"; s="running"; }
+  else if(phase==="done"){
+    if(run&&run.conclusion==="success"){ label="완료 · 성공"; s="done"; }
+    else if(run&&run.conclusion==="cancelled"){ label="취소됨"; s="fail"; }
+    else { label="완료 · 실패"; s="fail"; }
+  }
+  else if(phase==="error"){ label="요청 실패"; s="fail"; }
+  chip.textContent=label; chip.dataset.s=s;
+  c.textContent=cur.cmd||"아직 실행한 명령이 없습니다.";
+  $("#runNum").textContent=run&&run.run_number?"#"+run.run_number:"";
+
+  t.textContent="";
+  if(run){
+    if(run.status==="completed"){
+      var st=run.run_started_at||run.created_at, en=run.updated_at;
+      var sec=(new Date(en)-new Date(st))/1000;
+      t.textContent=(isFinite(sec)?"소요 "+dur(sec)+" · ":"")+ago(run.updated_at||run.created_at);
+    }else if(run.run_started_at){
+      t.textContent="시작 "+hhmmss(run.run_started_at);
+    }else{
+      t.textContent="등록 "+hhmmss(run.created_at);
+    }
+  }
+  var bits=[];
+  if(run){
+    bits.push('<span class="k">런</span> #'+(run.run_number||"-")+' · '+(run.event||"workflow_dispatch"));
+    if(run.head_branch) bits.push('<span class="k">브랜치</span> '+run.head_branch);
+    if(run.run_started_at) bits.push('<span class="k">시작</span> '+hhmmss(run.run_started_at));
+  }
+  meta.innerHTML=bits.join(" · ");
+
+  var showNote=(phase==="waiting"&&run&&run.status==="queued");
+  if(phase==="waiting"&&!run) showNote=true;
+  note.classList.toggle("on",!!showNote);
+
+  if(run&&run.html_url){ link.href=run.html_url; link.hidden=false; } else { link.hidden=true; }
+  rc.hidden=!(run&&run.status!=="completed");
+
+  if(phase==="waiting"||phase==="running"){ startTick(); } else { stopTick(); }
+}
+function startTick(){
+  if(tickTimer) return;
+  paintStatus.t0=paintStatus.t0||Date.now();
+  tickTimer=setInterval(function(){
+    if(cur.run&&cur.run.status==="queued"){ $("#stTime").textContent="대기 "+dur((Date.now()-new Date(cur.run.created_at).getTime())/1000); }
+    else if(cur.run&&cur.run.run_started_at){ $("#stTime").textContent="경과 "+dur((Date.now()-new Date(cur.run.run_started_at).getTime())/1000); }
+  },1000);
+}
+function stopTick(){ if(tickTimer){ clearInterval(tickTimer); tickTimer=null; } }
+
+function runCommand(cmd,opt){
+  opt=opt||{};
+  cmd=String(cmd||"").trim();
+  if(!cmd){ toast("명령이 비어 있습니다","bad"); return Promise.resolve(false); }
+  if(!TOKEN){ toast("먼저 GitHub 토큰을 저장하세요","bad"); openTokenCard(true); return Promise.resolve(false); }
+  if(polling){ toast("이미 다른 명령을 실행 중입니다"); return Promise.resolve(false); }
+  polling=true;
+  var prevId=0, sentAt=Date.now();
+  setStatus({phase:"dispatching", cmd:cmd, run:null});
+  var btn=opt.btn||null; if(btn) btn.classList.add("busy");
+  var sc=$("#statusCard").getBoundingClientRect();
+  if(sc.top<0||sc.bottom>window.innerHeight){ $("#statusCard").scrollIntoView({behavior:"smooth",block:"center"}); }
+  return latestRunId()
+    .then(function(id){ prevId=id||0; return api("/repos/"+O+"/"+R+"/actions/workflows/"+WF+"/dispatches",{method:"POST",body:{ref:REF,inputs:{command:cmd}}}); })
+    .then(function(r){
+      if(!r.ok){ throw new Error(errText(r)); }
+      toast("PC에 명령을 보냈습니다","good");
+      return pollRun(prevId,cmd,opt,sentAt);
+    })
+    .catch(function(e){
+      setStatus({phase:"error", cmd:cmd, note:e.message});
+      toast("실패 · "+e.message,"bad");
+      return false;
+    })
+    .then(function(v){
+      polling=false; if(btn) btn.classList.remove("busy");
+      return v;
+    });
+}
+
+function pollRun(prevId,cmd,opt,sentAt){
+  var started=Date.now(), LIMIT=180000;
+  return new Promise(function(resolve){
+    function tick(){
+      if(Date.now()-started>LIMIT){
+        setStatus({phase:"error",cmd:cmd});
+        toast("시간 초과 — GitHub에서 상태를 확인하세요","bad");
+        return resolve(false);
+      }
+      api("/repos/"+O+"/"+R+"/actions/runs?event=workflow_dispatch&per_page=10").then(function(r){
+        if(!r.ok){ setTimeout(tick,3000); return; }
+        var list=(r.data&&r.data.workflow_runs)||[];
+        var cand=list.filter(function(x){
+          if((x.id||0)<=prevId) return false;
+          if(prevId===0){   /* 기준 런을 못 읽었을 때만 시간으로 걸러 낸다 */
+            var t=new Date(x.created_at||0).getTime();
+            if(t>0 && t<(sentAt||0)-300000) return false;
+          }
+          return true;
+        }).sort(function(a,b){ return a.id-b.id; })[0];
+        if(!cand){
+          setStatus({phase:"waiting", cmd:cmd, run:null});
+          setTimeout(tick,3000); return;
+        }
+        setStatus({
+          phase: cand.status==="completed"?"done":(cand.status==="in_progress"?"running":"waiting"),
+          cmd:cmd, run:cand
+        });
+        if(cand.status==="completed"){
+          rememberCmd(cand.id,cmd);
+          loadHistory(true);
+          if(opt.capture && cand.conclusion==="success"){ lastCaptureRun=cand; readCaptureFromLogs(cand.id,true); }
+          return resolve(cand.conclusion==="success");
+        }
+        setTimeout(tick,3000);
+      });
+    }
+    tick();
+  });
+}
+
+function retryStatus(){
+  if(!cur.run) return;
+  $("#recheck").classList.add("busy");
+  api("/repos/"+O+"/"+R+"/actions/runs/"+cur.run.id).then(function(r){
+    $("#recheck").classList.remove("busy");
+    if(r.ok){
+      setStatus({
+        phase: r.data.status==="completed"?"done":(r.data.status==="in_progress"?"running":"waiting"),
+        run:r.data
+      });
+    }else{ toast(errText(r),"bad"); }
+  });
+}
+
+/* ───────── 최근 실행 ───────── */
+function loadHistory(silent){
+  if(!TOKEN){ return; }
+  var box=$("#histList");
+  if(!silent) box.innerHTML='<div class="empty">불러오는 중…</div>';
+  api("/repos/"+O+"/"+R+"/actions/runs?event=workflow_dispatch&per_page=6").then(function(r){
+    if(!r.ok){ if(!silent) box.innerHTML='<div class="empty">'+errText(r)+'</div>'; return; }
+    var list=(r.data&&r.data.workflow_runs)||[];
+    if(!list.length){ box.innerHTML='<div class="empty">아직 실행 기록이 없습니다.</div>'; return; }
+    box.innerHTML="";
+    list.forEach(function(run){
+      var row=el("div","hItem");
+      row.dataset.testid="hist-row";
+      var dot=el("span","hDot "+(run.status!=="completed"?"r":(run.conclusion==="success"?"s":"f")));
+      var main=el("div","hMain");
+      var top=el("div","hTop");
+      var st=run.status!=="completed"?"실행 중":(run.conclusion==="success"?"성공":"실패");
+      top.appendChild(document.createTextNode("#"+(run.run_number||"-")+" · "+st));
+      top.appendChild(el("span",null,ago(run.created_at)));
+      var cmd=knownCmd(run.id)||"명령 기록 없음(다른 기기에서 실행)";
+      var c=el("div","hCmd",cmd);
+      main.appendChild(top); main.appendChild(c);
+      row.appendChild(dot); row.appendChild(main);
+      row.addEventListener("click",function(){
+        lastCaptureRun=run;
+        setStatus({phase: run.status==="completed"?"done":(run.status==="in_progress"?"running":"waiting"), run:run, cmd:knownCmd(run.id)||cur.cmd});
+        $("#statusCard").scrollIntoView({behavior:"smooth",block:"center"});
+      });
+      box.appendChild(row);
+    });
+  });
+}
+
+/* ───────── 캡처 ───────── */
+function showShot(dataUrl,info){
+  var img=$("#shot");
+  img.onload=function(){
+    cap.natural={w:img.naturalWidth,h:img.naturalHeight};
+    img.hidden=false;
+    $("#shotEmpty").hidden=true;
+    $("#capBar").hidden=false;
+    $("#capTools").hidden=false;
+    if(info&&info.w){ $("#capW").value=info.w; }
+    cap.info=info||{};
+    paintCapInfo();
+  };
+  img.onerror=function(){
+    toast("이미지를 읽지 못했습니다 (base64 손상)","bad");
+  };
+  img.src=dataUrl;
+}
+function paintCapInfo(){
+  var sw=Number($("#capW").value)||1920;
+  var nat=cap.natural.w||1280, nh=cap.natural.h||720;
+  var sh=Math.round(sw*nh/nat);
+  $("#capInfo").textContent=sw+"×"+sh+" · 배율 "+(sw/nat).toFixed(2)+"×";
+  $("#scaleInfo").textContent="(이미지 "+nat+"×"+nh+")";
+}
+function clearPick(){
+  var m=document.querySelector(".marker"); if(m) m.remove();
+  cap.pick=null;
+  $("#clickBtn").disabled=true;
+  $("#pickInfo").textContent="화면을 눌러 지점 선택";
+}
+$("#shot").addEventListener("click",function(e){
+  if($("#shot").hidden) return;
+  var rect=this.getBoundingClientRect();
+  var nx=(e.clientX-rect.left)/rect.width, ny=(e.clientY-rect.top)/rect.height;
+  nx=Math.min(1,Math.max(0,nx)); ny=Math.min(1,Math.max(0,ny));
+  var sw=Number($("#capW").value)||1920;
+  var sh=Math.round(sw*(cap.natural.h||720)/(cap.natural.w||1280));
+  var X=Math.round(nx*sw), Y=Math.round(ny*sh);
+  cap.pick={x:X,y:Y};
+  var old=document.querySelector(".marker"); if(old) old.remove();
+  var mk=el("span","marker");
+  mk.style.left=(nx*100)+"%"; mk.style.top=(ny*100)+"%";
+  $("#shotWrap").appendChild(mk);
+  $("#pickInfo").textContent="→ "+X+", "+Y;
+  $("#clickBtn").disabled=false;
+});
+$("#capW").addEventListener("input",function(){ paintCapInfo(); if(cap.pick){ /* recompute on next tap */ } });
+
+function capture(){ return runCommand(CAPTURE,{capture:true,btn:$("#capRun")}); }
+
+/* 로그 zip → base64 → 이미지 */
+function ensureJSZip(){
+  if(window.JSZip) return Promise.resolve();
+  return new Promise(function(res,rej){
+    var s=document.createElement("script");
+    s.src=JSZIP_URL; s.onload=function(){ res(); }; s.onerror=function(){ rej(new Error("JSZip 로드 실패 (오프라인?)")); };
+    document.head.appendChild(s);
+  });
+}
+function extractChunk(text){
+  var info=null;
+  var m=/INFO:(\d+)\s*x\s*(\d+)/.exec(text);
+  if(m) info={w:parseInt(m[1],10),h:parseInt(m[2],10)};
+  var body=text, s=text.indexOf("===START_SCREEN_CHUNK==="), e=text.indexOf("===END_SCREEN_CHUNK===");
+  if(s>-1){ body=text.slice(s+24, e>-1?e:text.length); }
+  var toks=body.split(/\s+/).filter(function(t){ return t.length>=16 && /^[A-Za-z0-9+/=]+$/.test(t); });
+  var b64=toks.join("");
+  if(b64.length<400) return null;
+  return {b64:b64, info:info};
+}
+function readCaptureFromLogs(runId,quiet){
+  var btn=$("#capLogs");
+  if(!runId){ toast("먼저 캡처를 실행하세요","bad"); return; }
+  if(!quiet) btn.classList.add("busy");
+  ensureJSZip().then(function(){
+    return fetch(API+"/repos/"+O+"/"+R+"/actions/runs/"+runId+"/logs",{
+      headers:{"Authorization":"Bearer "+TOKEN,"Accept":"application/vnd.github+json"},
+      redirect:"follow"
+    });
+  }).then(function(res){
+    if(!res.ok) throw new Error("로그 HTTP "+res.status);
+    return res.arrayBuffer();
+  }).then(function(buf){
+    return window.JSZip.loadAsync(buf);
+  }).then(function(zip){
+    var names=Object.keys(zip.files);
+    var jobs=names.filter(function(n){ return /\.txt$/i.test(n) && !zip.files[n].dir; });
+    var chain=Promise.resolve(null);
+    jobs.forEach(function(n){
+      chain=chain.then(function(found){
+        if(found) return found;
+        return zip.files[n].async("string").then(function(t){ return t.indexOf("START_SCREEN_CHUNK")>-1?t:null; });
+      });
+    });
+    return chain;
+  }).then(function(txt){
+    if(!txt) throw new Error("로그에 캡처 청크가 없습니다");
+    var got=extractChunk(txt);
+    if(!got) throw new Error("청크 디코딩 실패");
+    showShot("data:image/jpeg;base64,"+got.b64, got.info);
+    $("#capNote").classList.remove("on");
+    toast("캡처를 불러왔습니다","good");
+  }).catch(function(e){
+    var msg="로그를 직접 읽지 못했습니다 ("+(e&&e.message||"CORS 차단")+") — 「로그에서 읽기」를 다시 누르거나 붙여넣기를 쓰세요.";
+    var n=$("#capNote"); n.textContent=msg; n.classList.add("on");
+    if(!quiet){ $("#pasteBox").open=true; toast("로그 직접 읽기 실패","bad"); }
+  }).then(function(){ btn.classList.remove("busy"); });
+}
+
+function pasteToImage(){
+  var txt=$("#pasteTa").value||"";
+  if(!txt.trim()){ toast("로그를 붙여넣으세요","bad"); return; }
+  var got=extractChunk(txt);
+  if(!got){ toast("캡처 청크를 찾지 못했습니다","bad"); return; }
+  showShot("data:image/jpeg;base64,"+got.b64, got.info);
+  toast("이미지로 변환했습니다","good");
+}
+
+/* ───────── 모달 ───────── */
+var modalCb=null;
+function openModal(o,cb){
+  modalCb=cb||null;
+  $("#mTitle").textContent=o.title||"실행할까요?";
+  $("#mBody").textContent=o.body||"";
+  $("#mCmd").textContent=o.cmd||"";
+  $("#mCmd").style.display=o.cmd?"":"none";
+  $("#mOk").textContent=o.okText||"실행";
+  $("#mOk").classList.toggle("danger",!!o.danger);
+  $("#modal").classList.add("on");
+}
+function closeModal(){ $("#modal").classList.remove("on"); modalCb=null; }
+$("#mCancel").addEventListener("click",closeModal);
+$("#modal").addEventListener("click",function(e){ if(e.target===this) closeModal(); });
+$("#mOk").addEventListener("click",function(){ var cb=modalCb; closeModal(); if(cb) cb(); });
+
+/* ───────── 화면 구성 ───────── */
+function buildQuick(){
+  var g=$("#quickGrid");
+  g.innerHTML="";
+  QUICK.forEach(function(q){
+    var b=el("button","qbtn");
+    b.type="button"; b.dataset.testid="quick-"+q.id; b.dataset.warn=q.warn?"1":"0";
+    b.innerHTML='<span class="qi">'+q.icon+'</span><span class="ql"></span><span class="qd"></span><code class="qc"></code>'+(q.confirm?'<span class="lock">확인</span>':"");
+    b.querySelector(".ql").textContent=q.label;
+    b.querySelector(".qd").textContent=q.desc;
+    b.querySelector(".qc").textContent=q.cmd;
+    b.addEventListener("click",function(){
+      if(q.confirm){
+        openModal({title:q.confirm.title, body:q.confirm.body, cmd:q.cmd, okText:"실행"},function(){ runCommand(q.cmd,{capture:!!q.capture}); });
+      }else{
+        runCommand(q.cmd,{capture:!!q.capture});
+      }
+    });
+    g.appendChild(b);
+  });
+}
+function buildChips(){
+  var c=$("#cmdChips");
+  c.innerHTML="";
+  SAMPLES.forEach(function(s){
+    var b=el("button","chip-btn",s.length>34?s.slice(0,32)+"…":s);
+    b.type="button"; b.title=s;
+    b.addEventListener("click",function(){ $("#cmdInput").value=s; });
+    c.appendChild(b);
+  });
+}
+function openTokenCard(force){
+  var body=$("#tokenBody"), btn=$("#toggleToken");
+  body.hidden=false; btn.textContent="접기";
+  if(force) $("#tokenCard").scrollIntoView({behavior:"smooth",block:"start"});
+}
+
+/* ───────── 초기화 ───────── */
+function init(){
+  buildQuick(); buildChips();
+  TOKEN=store(KEY_PAT)||"";
+  if(TOKEN){ $("#tokenBody").hidden=true; }
+  applyTokenUI();
+  if(TOKEN){ checkConnection(true); loadHistory(true); }
+  else{ paintConn("토큰을 저장하면 연결 상태를 확인합니다."); setBadge("off","미연결"); }
+
+  $("#saveToken").addEventListener("click",saveToken);
+  $("#delToken").addEventListener("click",function(){
+    openModal({title:"토큰을 삭제할까요?",body:"이 브라우저에 저장된 GitHub 토큰을 지웁니다. 다시 쓰려면 토큰을 넣어야 합니다.",cmd:"",okText:"삭제",danger:true},delToken);
+  });
+  $("#checkConn").addEventListener("click",function(){ checkConnection(false); });
+  $("#eyeBtn").addEventListener("click",function(){
+    var on=this.dataset.on==="1";
+    this.dataset.on=on?"0":"1";
+    this.textContent=on?"👁":"🙈";
+    $("#tokenInput").type=on?"password":"text";
+  });
+  $("#tokenInput").addEventListener("keydown",function(e){ if(e.key==="Enter"){ e.preventDefault(); saveToken(); } });
+  $("#toggleToken").addEventListener("click",function(){
+    var body=$("#tokenBody"), open=!body.hidden;
+    body.hidden=open; this.textContent=open?"펼치기":"접기";
+  });
+  $("#connBadge").addEventListener("click",function(){ openTokenCard(true); if(TOKEN) checkConnection(false); });
+
+  $("#runCmd").addEventListener("click",function(){ runCommand($("#cmdInput").value,{btn:$("#runCmd")}); });
+  $("#clearCmd").addEventListener("click",function(){ $("#cmdInput").value=""; });
+  $("#cmdInput").addEventListener("keydown",function(e){
+    if((e.metaKey||e.ctrlKey)&&e.key==="Enter"){ e.preventDefault(); runCommand($("#cmdInput").value,{btn:$("#runCmd")}); }
+  });
+
+  $("#capRun").addEventListener("click",capture);
+  $("#capLogs").addEventListener("click",function(){
+    var id=lastCaptureRun?lastCaptureRun.id:(cur.run?cur.run.id:null);
+    if(!id){ toast("캡처를 먼저 실행하거나 최근 실행에서 캡처를 고르세요","bad"); return; }
+    readCaptureFromLogs(id,false);
+  });
+  $("#pasteBtn").addEventListener("click",pasteToImage);
+  $("#clickBtn").addEventListener("click",function(){
+    if(!cap.pick) return;
+    var cmd=clickCmd(cap.pick.x,cap.pick.y,1);
+    openModal({
+      title:"이 지점을 클릭할까요?",
+      body:"PC 마우스가 ("+cap.pick.x+", "+cap.pick.y+")로 이동해 클릭합니다. 화면에서 다른 일을 하고 있다면 먼저 멈추세요.",
+      cmd:cmd, okText:"클릭"
+    },function(){ runCommand(cmd,{}); });
+  });
+  $("#recheck").addEventListener("click",retryStatus);
+  $("#refreshHist").addEventListener("click",function(){ loadHistory(false); });
+  paintStatus();
+  clearPick();
+}
+document.addEventListener("DOMContentLoaded",init);
+})();
+</script>
+</body>
+</html>
